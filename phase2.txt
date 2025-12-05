@@ -1,0 +1,116 @@
+AidHandy Phase 2 – Upwork Contract (Romulo Pricing + Full Scope Integrated)
+
+1. Project Overview
+Full execution of AidHandy Phase 2 using Romulo’s 4-milestone pricing with all deliverables from the
+official AidHandy Phase 2 Scope. Launch-focused: functionality first, UI/UX last.
+Total Expected Duration: 4 Weeks
+(Duration: 1 week per milestone)
+
+2. Milestones (Romulo Pricing + Full Deliverables)
+Milestone 1 — Core MVP Booking Engine ($650) — Duration: 1 Week
+- Path 1 & 2 booking flows
+- Airline, route, date validation
+- Seat logic groundwork
+- Companion approval workflow
+- Booking status system
+- Stripe Connect Express (payments, payouts, fees, refunds, webhooks)
+- PayPal (order creation, capture, webhooks)
+- Base notifications (booking confirmation, assignment, pre-trip)
+- Admin basics (companion approvals, suspension, refunds, CSV export)
+- Minimum UI/UX for launch
+Completion: booking + payment flows fully operational.
+
+Milestone 2 — Admin, Identity, Pricing, Seat Maps ($550) — Duration: 1 Week
+- Full admin dashboard
+- Filters, refunds, suspensions
+- CSV exports
+- Identity verification (Stripe Identity)
+- Verification gating + metadata
+- Add-ons (boarding, baggage, bundles)
+- Pricing table + multi-flight discounts
+- Seat map integration (Duffel or alternative)
+- Rendering, adjacency scoring, fallback UI
+- Seat scoring in admin
+Completion: admin, pricing, verification, seat maps working.
+
+Milestone 3 — Notifications Upgrade + Mobile Foundations ($600) — Duration: 1 Week
+- Retry logic, DLQ, logging
+- Monitoring dashboard
+- Twilio proxy lifecycle
+- Admin broadcast tools
+- React Native + Expo foundations
+- Companion features (availability, bookings, payouts)
+- Traveler features (view bookings, notifications)
+- Push notifications
+- OTA updates
+- TestFlight + Play Store setup
+Completion: notification system stable + mobile app functional.
+
+Milestone 4 — UI/UX Implementation (Polish) ($500) — Duration: 1 Week
+- Design tokens
+- Component library
+- Accessibility
+- UX refinements
+- Mobile/web UI consistency
+Completion: polished unified interface
+
+
+3. Phase 1 Review (Mandatory Before Milestone 1)
+Before beginning Milestone 1, the developer will review the existing Phase 1 codebase to understand
+its structure and ensure it can support Phase 2 development.
+The review includes checking:
+- Code structure and architecture
+- Supabase schema and RLS policies
+- API integrations
+- Booking logic
+- Stripe setup
+- Any existing bugs that would block or break Phase 2 functionality
+
+3. Phase 1 Review (Mandatory Before Milestone 1)
+Before beginning Milestone 1, the developer will review the existing Phase 1 codebase to understand
+its structure and ensure it can support Phase 2 development.
+The review includes checking:
+- Code structure and architecture
+- Supabase schema and RLS policies
+- API integrations
+- Booking logic
+- Stripe setup
+- Any existing bugs that would block or break Phase 2 functionality
+
+4. Technical Expectations
+Modular TypeScript, App Router, Supabase RLS, API fallbacks, audit trails, unified backend.
+
+5. Delivery Guidelines
+Code in GitHub, staging deploy, migrations, Loom, docs, basic tests.
+
+6. Payment Terms
+Released when functionality works as expected. Collaborative refinement. No extra costs unless
+agreed.
+
+7. Warranty (30 Days After First Real Booking Post Launch)
+A 30-day limited warranty begins after the first real user booking occurs following public launch. It
+covers only bugs or regressions directly caused by Phase 2 work.
+Covered:
+- Booking flow issues
+- Payment/payout issues caused by Phase 2 logic
+- Notification failures caused by Phase 2 logic
+- Admin dashboard bugs related to delivered features
+- Mobile app bugs tied to Phase 2 work
+Not covered:
+- New features, logic changes, redesigns
+- Enhancements or improvements
+- Issues caused by third-party outages
+- Issues introduced by other developers
+Response:
+- Acknowledge within 24 hours
+- Critical fixes within ~72 hours
+- Non-critical within 5–7 days
+
+8. Ownership & Confidentiality
+AidHandy owns all code. Confidential credentials. Portfolio use with approval.
+
+9. Adjustment or Termination
+Discuss and adapt as needed. Completed milestones always paid.
+
+10. Acceptance
+Developer accepts via Upwork message. Contract becomes active
