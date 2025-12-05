@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
+    { "source": "/cookie-policy", "destination": "/cookie-policy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/messaging-terms", "destination": "/messaging-terms.html" },
+    { "source": "/thankyou", "destination": "/thankyou.html" },
+
+    { "source": "/(.*)", "destination": "/nextapp/$1" }
+  ]
+}

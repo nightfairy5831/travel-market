@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Contact AidHandy — Support & Compliance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Get in touch with AidHandy for traveler support, companion inquiries, and compliance questions." />
+  <style>
+    :root { --ah-blue:#1D9FD8; --ah-orange:#FF7A00; --ah-text:#333; --ah-muted:#667085; --ah-border:#e5e7eb; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ah-text); background:#fff; line-height:1.6; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { color: var(--ah-blue); border-bottom:3px solid var(--ah-orange); padding-bottom: 6px; }
+    h2 { color: #0f172a; margin-top: 24px; }
+    .card { border:1px solid var(--ah-border); border-radius:16px; padding:18px; margin:14px 0; }
+    label { font-weight:600; }
+    input, textarea { width:100%; padding:10px; border:1px solid var(--ah-border); border-radius:10px; }
+    .btn { background: var(--ah-blue); color:#fff; border:0; padding:12px 16px; border-radius:10px; font-weight:700; cursor:pointer; }
+    .muted { color: var(--ah-muted); font-size: 13px; }
+    a { color: var(--ah-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Contact AidHandy</h1>
+    <p>We’re responsive, not robotic. Pick the channel that fits your use case.</p>
+
+    <div class="card">
+      <h2>Support</h2>
+      <p>Email: <a href="mailto:support@aidhandy.com">support@aidhandy.com</a></p>
+      <p class="muted">Response target: within 1 business day. Urgent flight changes get priority. Do not use this page for emergencies — call 911.</p>
+    </div>
+
+    <div class="card">
+      <h2>Press & Partnerships</h2>
+      <p>Email: <a href="mailto:partnerships@aidhandy.com">partnerships@aidhandy.com</a></p>
+      <p class="muted">Media inquiries, airport partners, and integrations.</p>
+    </div>
+
+    <div class="card">
+      <h2>Compliance & Privacy</h2>
+      <p>Email: <a href="mailto:privacy@aidhandy.com">privacy@aidhandy.com</a></p>
+      <p class="muted">For data rights requests: please include your name, contact details, and the request type (access, deletion, correction).</p>
+    </div>
+
+    <div class="card">
+      <h2>Contact Form</h2>
+      <form aria-label="Contact form" onsubmit="alert('This is a placeholder form. Connect to backend.'); return false;">
+        <label for="name">Full name</label>
+        <input id="name" name="name" required />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+
+        <label for="phone">Mobile (optional)</label>
+        <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+1 555 000 0000" />
+
+        <label for="message">How can we help?</label>
+        <textarea id="message" name="message" rows="5" required></textarea>
+
+        <p class="muted">
+          If you provide a mobile number, you consent to receive service-related SMS about this request.
+          Message frequency varies. Message/data rates may apply. Reply <strong>STOP</strong> to unsubscribe or <strong>HELP</strong> for assistance.
+          See our <a href="/privacy-policy.html">Privacy Policy</a>.
+        </p>
+
+        <button class="btn" type="submit">Send</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Business Details</h2>
+      <p class="muted">AidHandy Inc. · United States · Operating domestically at launch.</p>
+    </div>
+
+    <p class="muted">© <span id="y"></span> AidHandy Inc. • <a href="/privacy-policy.html">Privacy</a> • <a href="/terms.html">Terms</a></p>
+  </main>
+  <script> document.getElementById('y').textContent = new Date().getFullYear(); </script>
+</body>
+</html>

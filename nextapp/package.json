@@ -1,0 +1,43 @@
+{
+  "name": "aidhandy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:ci": "jest --ci --coverage",
+    "build:staging": "next build",
+    "build:production": "next build",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sentry/nextjs": "^10.20.0",
+    "@stripe/stripe-js": "^8.3.0",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.76.1",
+    "@tanstack/react-query": "^5.90.5",
+    "next": "15.5.6",
+    "postmark": "^4.0.5",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-phone-input-2": "^2.15.1",
+    "react-select": "^5.10.2",
+    "stripe": "^19.1.0",
+    "twilio": "^5.10.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@iconify/react": "^6.0.2",
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/react": "19.2.2",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.6",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4"
+  }
+}
