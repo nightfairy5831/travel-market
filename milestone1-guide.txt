@@ -1,0 +1,54 @@
+1. Setup
+# Add env vars to .env.local
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+PAYPAL_CLIENT_ID=xxx
+PAYPAL_CLIENT_SECRET=xxx
+PAYPAL_MODE=sandbox
+
+# Run SQL migration in Supabase Dashboard
+# File: supabase/migrations/20241206_phase2_milestone1.sql
+
+2. Test Admin APIs
+# Get admin JWT token from Supabase (user with role='admin')
+
+# Test companion list
+curl -H "Authorization: Bearer TOKEN" \
+  http://localhost:3000/api/admin/companions?status=pending
+
+# Test approve companion
+curl -X POST -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"approve","companionId":"UUID"}' \
+  http://localhost:3000/api/admin/companions
+
+# Test bookings list
+curl -H "Authorization: Bearer TOKEN" \
+  http://localhost:3000/api/admin/bookings
+
+# Test CSV export
+curl -H "Authorization: Bearer TOKEN" \
+  http://localhost:3000/api/admin/export?type=bookings
+3. Test Webhooks (Stripe CLI)
+# Install Stripe CLI, then:
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+
+# Trigger test events
+stripe trigger checkout.session.completed
+stripe trigger payment_intent.succeeded
+stripe trigger charge.refunded
+
+4. Test Admin UI
+Page	URL	Test
+Dashboard	/admin	Links visible
+Companions	/admin/companions	Filter, approve, reject, suspend
+Bookings	/admin/bookings	Filter, cancel, refund, export CSV
+
+5. Checklist
+ SQL migration applied
+ Admin can view pending companions
+ Admin can approve/reject/suspend companions
+ Admin can view all bookings
+ Admin can cancel/refund bookings
+ CSV export downloads
+ Stripe webhooks update booking status
+ PayPal webhooks update booking status
