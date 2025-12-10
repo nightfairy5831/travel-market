@@ -1,4 +1,8 @@
+MILESTONE 1 TEST GUIDE
+======================
+
 1. Setup
+--------
 # Add env vars to .env.local
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 PAYPAL_CLIENT_ID=xxx
@@ -8,27 +12,115 @@ PAYPAL_MODE=sandbox
 # Run SQL migration in Supabase Dashboard
 # File: supabase/migrations/20241206_phase2_milestone1.sql
 
-2. Test Admin APIs
-# Get admin JWT token from Supabase (user with role='admin')
 
-# Test companion list
-curl -H "Authorization: Bearer TOKEN" \
+2. Airline, Route, Date Validation (Phase 1 Check)
+--------------------------------------------------
+Test via UI at /dashboard/FlightChecker:
+- [ ] Search flights with valid departure/arrival airports
+- [ ] Search flights with valid future date
+- [ ] Verify invalid airport codes show error
+- [ ] Verify past dates are rejected
+- [ ] Verify Duffel API returns flight results
+
+Test Supabase function:
+curl -X POST "SUPABASE_URL/functions/v1/duffel-flights" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"origin":"JFK","destination":"LAX","departure_date":"2025-01-15"}'
+
+
+3. Seat Logic Groundwork (Phase 1 Check)
+----------------------------------------
+Test via UI at /dashboard/FlightChecker (after selecting flight):
+- [ ] Seat map displays after flight selection
+- [ ] Available/unavailable seats are distinguishable
+- [ ] User can select a seat
+- [ ] Selected seat is stored in booking
+
+Test Supabase function:
+curl -X POST "SUPABASE_URL/functions/v1/duffel-seatmaps" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"offer_id":"off_xxx"}'
+
+
+4. Booking Status System
+------------------------
+Status flow: pending → confirmed → assigned → completed
+                   ↘ cancelled
+                   ↘ refunded
+
+Test in Supabase SQL:
+-- Check booking status transitions
+SELECT id, status, payment_status, created_at, updated_at
+FROM bookings ORDER BY created_at DESC LIMIT 10;
+
+-- Verify status field values
+SELECT DISTINCT status FROM bookings;
+SELECT DISTINCT payment_status FROM bookings;
+
+
+5. Companion Approval Workflow
+------------------------------
+Status flow: pending → approved → suspended → approved
+                   ↘ rejected
+
+Test via Admin UI at /admin/companions:
+- [ ] View pending companions list
+- [ ] Approve a companion → status changes to 'approved'
+- [ ] Reject a companion → status changes to 'rejected', reason saved
+- [ ] Suspend approved companion → status changes to 'suspended'
+- [ ] Reactivate suspended companion → status changes to 'approved'
+
+Test via API:
+# List pending
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
   http://localhost:3000/api/admin/companions?status=pending
 
-# Test approve companion
-curl -X POST -H "Authorization: Bearer TOKEN" \
+# Approve
+curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"action":"approve","companionId":"UUID"}' \
   http://localhost:3000/api/admin/companions
 
+# Reject
+curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"reject","companionId":"UUID","reason":"Incomplete profile"}' \
+  http://localhost:3000/api/admin/companions
+
+# Suspend
+curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"suspend","companionId":"UUID","reason":"Policy violation"}' \
+  http://localhost:3000/api/admin/companions
+
+
+6. Test Bookings Admin API
+--------------------------
 # Test bookings list
-curl -H "Authorization: Bearer TOKEN" \
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
   http://localhost:3000/api/admin/bookings
 
 # Test CSV export
-curl -H "Authorization: Bearer TOKEN" \
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
   http://localhost:3000/api/admin/export?type=bookings
-3. Test Webhooks (Stripe CLI)
+
+# Cancel booking
+curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"cancel","bookingId":"UUID","reason":"Customer request"}' \
+  http://localhost:3000/api/admin/bookings
+
+# Refund booking
+curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"refund","bookingId":"UUID","reason":"Service issue"}' \
+  http://localhost:3000/api/admin/bookings
+
+
+7. Test Webhooks (Stripe CLI)
+-----------------------------
 # Install Stripe CLI, then:
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
@@ -37,18 +129,44 @@ stripe trigger checkout.session.completed
 stripe trigger payment_intent.succeeded
 stripe trigger charge.refunded
 
-4. Test Admin UI
-Page	URL	Test
-Dashboard	/admin	Links visible
-Companions	/admin/companions	Filter, approve, reject, suspend
-Bookings	/admin/bookings	Filter, cancel, refund, export CSV
 
-5. Checklist
- SQL migration applied
- Admin can view pending companions
- Admin can approve/reject/suspend companions
- Admin can view all bookings
- Admin can cancel/refund bookings
- CSV export downloads
- Stripe webhooks update booking status
- PayPal webhooks update booking status
+8. Test Admin UI
+----------------
+Page          URL                   Test
+Dashboard     /admin                Links visible
+Companions    /admin/companions     Filter, approve, reject, suspend
+Bookings      /admin/bookings       Filter, cancel, refund, export CSV
+
+
+9. Full Checklist
+-----------------
+Phase 1 Validation:
+[ ] Flight search returns results (Duffel API)
+[ ] Invalid airport codes rejected
+[ ] Past dates rejected
+[ ] Seat map displays correctly
+[ ] Seat selection works
+
+Booking Status System:
+[ ] SQL migration applied
+[ ] Bookings have status field (pending/confirmed/cancelled/refunded)
+[ ] Bookings have payment_status field (pending/paid/failed/refunded)
+[ ] Status transitions work correctly
+
+Companion Approval Workflow:
+[ ] Admin can view pending companions
+[ ] Admin can approve companions
+[ ] Admin can reject companions (with reason)
+[ ] Admin can suspend companions (with reason)
+[ ] Admin can reactivate suspended companions
+
+Admin Features:
+[ ] Admin can view all bookings
+[ ] Admin can filter bookings by status
+[ ] Admin can cancel bookings
+[ ] Admin can refund bookings (Stripe)
+[ ] CSV export downloads correctly
+
+Webhooks:
+[ ] Stripe webhooks update booking status
+[ ] PayPal webhooks update booking status
