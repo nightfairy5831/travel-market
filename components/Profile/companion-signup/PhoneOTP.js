@@ -129,7 +129,11 @@ export default function PhoneInput2({
 
     const ok = validatePhone(value, countryData);
     setIsValid(ok);
-    if (!ok) {
+    if (ok) {
+      // Auto-verify when valid phone number is entered (skip OTP)
+      setVerified(true);
+      if (onVerified) onVerified(true);
+    } else {
       setOtpSent(false);
       setVerified(false);
       setServerMsg("");

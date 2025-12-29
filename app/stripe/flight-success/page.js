@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useSearchParams , useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/libs/supabaseClient";
 
 export default function FlightSuccess() {
@@ -12,7 +12,7 @@ export default function FlightSuccess() {
   useEffect(() => {
     const finalizeBooking = async () => {
       try {
-        // 🔹 1. Verify Supabase session
+        // 1. Verify Supabase session
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -21,11 +21,11 @@ export default function FlightSuccess() {
         }
         const supabaseToken = session?.access_token;
         if (!supabaseToken) {
-          setStatus("⚠️ Please log in again to finalize booking.");
+          setStatus("Please log in again to finalize booking.");
           return;
         }
 
-        // 🔹 2. Fetch pending booking from localStorage
+        // 2. Fetch pending booking from localStorage
         const pendingBooking = JSON.parse(
           localStorage.getItem("pendingBooking")
         );
@@ -34,7 +34,7 @@ export default function FlightSuccess() {
           !pendingBooking.selectedFlight ||
           !pendingBooking.profile
         ) {
-          setStatus("❌ Missing flight or user information.");
+          setStatus("Missing flight or user information.");
           return;
         }
 
@@ -42,17 +42,16 @@ export default function FlightSuccess() {
         const {
           selectedFlight,
           profile,
-          flightData,
-          user,
           selectedSeat,
           pairingId,
           selectedCompanion,
           stopDescription,
         } = pendingBooking;
 
-        // 🔹 3. Create Duffel order (after Stripe success)
-        const createOrderRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/duffel-create-booking`,
+        // 3. Re-price the flight offer first (flight offers expire quickly)
+        setStatus("Confirming flight availability and price...");
+        const priceRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/amadeus-price-offer`,
           {
             method: "POST",
             headers: {
@@ -60,88 +59,93 @@ export default function FlightSuccess() {
               Authorization: `Bearer ${supabaseToken}`,
             },
             body: JSON.stringify({
-              data: {
-                selected_offers: [selectedFlight.id],
-                payments: [
-                  {
-                    type: "balance", // ⚡ Duffel only accepts "balance" here
-                    amount: selectedFlight.total_amount,
-                    currency: selectedFlight.total_currency,
-                  },
-                ],
-                passengers: [
-                  {
-                    id: selectedFlight.passengers?.[0]?.id || "pas_placeholder", // ⚡ Use actual passenger id from offer if available
-                    type: "adult",
-                    title: "mr",
-                    gender: "m",
-                    born_on: "1990-01-01",
-                    phone_number: profile.phone_number || "+12025550123", // ⚡ Provide a valid E.164 number
-                    email: profile.email,
-                    given_name: profile.full_name?.split(" ")[0] || "Traveller",
-                    family_name: profile.full_name?.split(" ")[1] || "User",
-                  },
-                ],
-              },
+              flight_offer: selectedFlight,
+            }),
+          }
+        );
+
+        const priceResponse = await priceRes.json();
+
+        // Use the re-priced flight offer if available, otherwise fall back to original
+        let flightOfferToBook = selectedFlight;
+        if (priceRes.ok && priceResponse.success && priceResponse.data) {
+          console.log("Flight offer re-priced successfully:", priceResponse);
+          flightOfferToBook = priceResponse.data;
+        } else {
+          console.warn("Could not re-price flight offer, using original:", priceResponse);
+          // Continue with original offer - it may still work
+        }
+
+        // 4. Create Amadeus booking (after Stripe success)
+        setStatus("Creating your booking...");
+        const createOrderRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/amadeus-create-booking`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseToken}`,
+            },
+            body: JSON.stringify({
+              flight_offer: flightOfferToBook,
+              travelers: [
+                {
+                  first_name: profile.full_name?.split(" ")[0] || profile.first_name || "Traveller",
+                  last_name: profile.full_name?.split(" ").slice(1).join(" ") || profile.last_name || "User",
+                  email: profile.email,
+                  phone: profile.phone_number || profile.phone || "",
+                  date_of_birth: profile.date_of_birth || "1990-01-01",
+                  gender: profile.gender || "MALE",
+                },
+              ],
             }),
           }
         );
 
         const orderResponse = await createOrderRes.json();
-        if (!createOrderRes.ok) {
-          console.error("Duffel order creation failed:", orderResponse);
-          setStatus("❌ Failed to create Duffel booking.");
-          alert(orderResponse.error?.message || "Duffel order failed");
+        if (!createOrderRes.ok || !orderResponse.success) {
+          console.error("Amadeus order creation failed:", orderResponse);
+          setStatus("Failed to create flight booking.");
+          alert(orderResponse.error || orderResponse.details?.errors?.[0]?.detail || "Booking failed");
           return;
         }
 
         const order = orderResponse.data;
-        console.log("Duffel order:", order);
+        const bookingReference = orderResponse.booking_reference;
+        const pnr = orderResponse.pnr;
 
-        const duffelStatus = order.status || "pending";
-        setStatus(`✅ Duffel order created (${duffelStatus})`);
+        console.log("Amadeus order:", order);
+        setStatus(`Booking created (Ref: ${pnr || bookingReference})`);
 
-        // 🔹 4. Extract segment details safely
-        const firstSlice = order.slices?.[0] || selectedFlight.slices?.[0];
-        const segments = firstSlice?.segments || [];
+        // 5. Extract segment details from Amadeus format
+        const itinerary = order?.itineraries?.[0] || selectedFlight.itineraries?.[0];
+        const segments = itinerary?.segments || [];
         const firstSegment = segments[0];
         const lastSegment = segments[segments.length - 1];
+        const price = order?.price || selectedFlight.price;
 
         const booking = {
           traveler_id: profile?.user_id,
-          duffel_order_id: order.id,
-          flight_number:
-            firstSegment?.marketing_carrier_flight_number ||
-            firstSegment?.number ||
-            "Unknown",
-          airline_name:
-            firstSegment?.marketing_carrier?.iata_code ||
-            order.owner?.iata_code ||
-            "Unknown",
+          amadeus_order_id: bookingReference,
+          pnr: pnr,
+          flight_number: firstSegment?.number || "Unknown",
+          airline_name: firstSegment?.carrierCode || "Unknown",
           departure_airport:
-            `${firstSegment?.origin?.iata_code || ""} - ${
-              firstSegment?.origin?.name || ""
-            }`.trim() || "Unknown",
+            `${firstSegment?.departure?.iataCode || ""} - ${firstSegment?.departure?.terminal || ""}`.trim() || "Unknown",
           destination_airport:
-            `${lastSegment?.destination?.iata_code || ""} - ${
-              lastSegment?.destination?.name || ""
-            }`.trim() || "Unknown",
-          departure_date:
-            firstSegment?.departing_at?.split("T")[0] ||
-            flightData?.preferred_date,
-          arrival_date:
-            lastSegment?.arriving_at?.split("T")[0] ||
-            flightData?.preferred_date,
-          seat_number: selectedSeat?.name || "TBD",
-          status: duffelStatus,
-          departure_iata: firstSegment?.origin?.iata_code || "Unknown", // ✅ added
-          destination_iata: lastSegment?.destination?.iata_code || "Unknown", // ✅ added
-          price: order.total_amount || selectedFlight.total_amount || 0, // ✅ add price here
+            `${lastSegment?.arrival?.iataCode || ""} - ${lastSegment?.arrival?.terminal || ""}`.trim() || "Unknown",
+          departure_date: firstSegment?.departure?.at?.split("T")[0] || "",
+          arrival_date: lastSegment?.arrival?.at?.split("T")[0] || "",
+          seat_number: selectedSeat?.designator || selectedSeat?.number || "TBD",
+          status: "confirmed",
+          departure_iata: firstSegment?.departure?.iataCode || "Unknown",
+          destination_iata: lastSegment?.arrival?.iataCode || "Unknown",
+          price: price?.grandTotal || price?.total || selectedFlight.price?.grandTotal || 0,
           stop_description: stopDescription,
           created_at: new Date().toISOString(),
         };
 
-        // 🔹 5. Store in Supabase
+        // 6. Store in Supabase
         const { data: bookingData, error: bookingError } = await supabase
           .from("bookings")
           .insert([booking])
@@ -149,42 +153,64 @@ export default function FlightSuccess() {
 
         if (bookingError) throw bookingError;
 
-        // 🔹 6. Update pairing if applicable
+        // 7. Update pairing if applicable
         if (pairingId) {
           await supabase
             .from("pairings")
             .update({
-              status: duffelStatus,
-              seat_number: selectedSeat?.name || "TBD",
+              status: "confirmed",
+              seat_number: selectedSeat?.designator || selectedSeat?.number || "TBD",
             })
             .eq("id", pairingId);
         }
 
-        // ✅ Done!
+        // 8. Send booking confirmation email
+        try {
+          await supabase.functions.invoke("send-booking-confirmation-email", {
+            body: {
+              booking_id: bookingData?.[0]?.id,
+              user_email: profile.email,
+              flight_details: {
+                flight_number: booking.flight_number,
+                departure_airport: booking.departure_airport,
+                destination_airport: booking.destination_airport,
+                departure_date: booking.departure_date,
+                price: booking.price,
+                airline_name: booking.airline_name,
+                pnr: pnr,
+              },
+            },
+          });
+          console.log("Confirmation email sent");
+        } catch (emailError) {
+          console.error("Failed to send confirmation email:", emailError);
+        }
+
+        // Done!
         alert(
-          `✅ Flight booking ${duffelStatus}!` +
+          `Flight booking confirmed!${pnr ? ` PNR: ${pnr}` : ""}` +
             (selectedCompanion
               ? ` Paired with ${selectedCompanion.full_name}!`
               : "")
         );
-        setStatus("🎉 Booking completed successfully!");
+        setStatus("Booking completed successfully!");
         router.push("/dashboard/Booked-Flights");
 
-        // 🧹 Optional cleanup
+        // Cleanup
         localStorage.removeItem("pendingBooking");
       } catch (err) {
         console.error("Booking finalization error:", err);
-        setStatus("❌ Error processing booking. Please try again.");
+        setStatus("Error processing booking. Please try again.");
       }
     };
 
     if (session_id) finalizeBooking();
-  }, [session_id]);
+  }, [session_id, router]);
 
   return (
     <div className="flex flex-col items-center justify-center h-[80vh]">
       <h1 className="text-3xl font-semibold text-green-600">
-        🎉 Payment Successful!
+        Payment Successful!
       </h1>
       <p className="text-gray-600 mt-4">{status}</p>
     </div>

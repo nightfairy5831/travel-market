@@ -11,6 +11,8 @@ import { useError } from "@/context/ErrorContext";
 export default function Login() {
   const { showError, showSuccess } = useError();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [role, setRole] = useState("traveller");
   const [type, setType] = useState("login"); // ✅ new state for type
   const [loading, setLoading] = useState(false);
@@ -124,7 +126,7 @@ export default function Login() {
       showError("Please enter a valid email address.");
       return;
     }
-    const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:8080";
 
     // Build dynamic redirect URL
     const redirectUrl = `${BASE_URL}/dashboard?role=${role}&firstName=${encodeURIComponent(
@@ -151,14 +153,47 @@ export default function Login() {
     }
   };
 
+  // For Admin Password Login
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setLoading(false);
+      showError(error.message);
+      return;
+    }
+
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profile?.role !== "admin") {
+      await supabase.auth.signOut();
+      setLoading(false);
+      showError("This login is for admin users only.");
+      return;
+    }
+
+    setLoading(false);
+    showSuccess("Admin login successful!");
+    router.push("/admin");
+  };
+
   // For Companion Login
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // showError("");
 
-    const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    // Send OTP with redirect
+    const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:8080";
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -276,92 +311,149 @@ export default function Login() {
       ) : (
         <>
           <Card className="!max-w-3xl w-full overflow-hidden">
-            <div className="bg-[#1d9fd8] px-6 py-8 rounded-[14.1px]">
+            <div className={`${isAdminLogin ? 'bg-gray-800' : 'bg-[#1d9fd8]'} px-6 py-8 rounded-[14.1px]`}>
               <h1 className="text-3xl font-bold text-white text-center">
-                {headingText}
+                {isAdminLogin ? "Admin Login" : headingText}
               </h1>
-              <p className="text-blue-100 text-center mt-2">{subText}</p>
+              <p className="text-blue-100 text-center mt-2">
+                {isAdminLogin ? "Enter your admin credentials" : subText}
+              </p>
             </div>
 
             <div className="mt-8">
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d9fd8] focus:border-transparent transition duration-200"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#1d9fd8] hover:bg-[#1d9fd8] text-white font-semibold py-3 px-4 rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#1d9fd8] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Sending...
-                    </div>
-                  ) : (
-                    "Send Magic Link"
-                  )}
-                </button>
-              </form>
-
-              {/* {message && (
-                <div
-                  className={`mt-6 p-4 rounded-lg text-center ${
-                    message.includes("Check your email")
-                      ? "bg-green-50 border border-green-200 text-green-700"
-                      : message.includes("expired")
-                      ? "bg-yellow-50 border border-yellow-200 text-yellow-700"
-                      : "bg-red-50 border border-red-200 text-red-700"
-                  }`}
-                >
-                  <p className="text-sm font-medium">{message}</p>
-                  {message.includes("expired") && (
-                    <p className="text-xs mt-1 opacity-75">
-                      Please enter your email above to get a new magic link
-                    </p>
-                  )}
-                </div>
-              )} */}
-
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="w-5 h-5 text-[#1d9fd8]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+              {isAdminLogin ? (
+                // Admin Password Login Form
+                <form onSubmit={handleAdminLogin} className="space-y-6">
+                  <div>
+                    <label
+                      htmlFor="admin-email"
+                      className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
+                      Admin Email
+                    </label>
+                    <input
+                      id="admin-email"
+                      type="email"
+                      placeholder="admin@aidhandy.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition duration-200"
+                    />
                   </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-[#1d9fd8]">
-                      We'll send you a magic link to sign in. No password
-                      needed!
-                    </p>
+
+                  <div>
+                    <label
+                      htmlFor="admin-password"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Password
+                    </label>
+                    <input
+                      id="admin-password"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition duration-200"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gray-800 hover:bg-gray-900 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Signing in...
+                      </div>
+                    ) : (
+                      "Sign In as Admin"
+                    )}
+                  </button>
+                </form>
+              ) : (
+                // Magic Link Login Form
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d9fd8] focus:border-transparent transition duration-200"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-[#1d9fd8] hover:bg-[#1d9fd8] text-white font-semibold py-3 px-4 rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#1d9fd8] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Sending...
+                      </div>
+                    ) : (
+                      "Send Magic Link"
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {!isAdminLogin && (
+                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg
+                        className="w-5 h-5 text-[#1d9fd8]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-[#1d9fd8]">
+                        We'll send you a magic link to sign in. No password
+                        needed!
+                      </p>
+                    </div>
                   </div>
                 </div>
+              )}
+
+              {/* Toggle Admin Login */}
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdminLogin(!isAdminLogin);
+                    setEmail("");
+                    setPassword("");
+                  }}
+                  className="text-sm text-gray-500 hover:text-gray-700 underline"
+                >
+                  {isAdminLogin ? "Back to Magic Link Login" : "Admin Login"}
+                </button>
               </div>
             </div>
           </Card>

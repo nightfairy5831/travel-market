@@ -5,8 +5,8 @@ import PathSelector from "@/components/Flight/PathSelector";
 import RouteForm from "@/components/Flight/RouteForm";
 import FlightList from "@/components/Flight/FlightList";
 import ConfirmModal from "@/components/Flight/ConfirmModal";
-import DuffelFlightList from "@/components/Flight/DuffelFlightList";
-import SeatMapModalDuffel from "@/components/Seat/SeatMapModalDuffel";
+import AmadeusFlightList from "@/components/Flight/AmadeusFlightList";
+import SeatMapModal from "@/components/Seat/SeatMapModal";
 import BackButton from "@/components/common/BackButton";
 import LoadingState from "@/components/Profile/LoadingState";
 import SearchByFlightNo from "@/components/Flight/BookedFlightInfo";
@@ -52,7 +52,65 @@ export default function FlightChecker() {
   const [companionDataAuth, setCompanionDataAuth] = useState([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // ! Flight Search Handler When Not Booked
+  // ! Direct Flight Search Handler (Skip companion search) - Uses Amadeus API
+  const handleSearchFlights = async (e) => {
+    e?.preventDefault();
+    setSubmitting(true);
+    // Clear any previous companion error state
+    setErrorOpen(false);
+    setIsCompanionListError(false);
+    try {
+      let supabaseToken;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        supabaseToken = session.access_token;
+      } else {
+        supabaseToken = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      }
+
+      const searchData = {
+        departure_airport: flightData.departure_airport,
+        destination_airport: flightData.destination_airport,
+        preferred_date: flightData.preferred_date,
+      };
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/amadeus-flights`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseToken}`,
+          },
+          body: JSON.stringify(searchData),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setResponse({
+          success: false,
+          message: data.message || data.error || "Amadeus API error",
+        });
+      } else {
+        setResponse(data.data || null);
+      }
+    } catch (err) {
+      console.error("Amadeus flight search error:", err);
+      setResponse({
+        success: false,
+        message: "Error fetching flights",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ! Flight Search Handler When Not Booked (Find Companions first)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedPath === 2 && (!profile || profile.type === "traveller")) {
@@ -140,122 +198,8 @@ export default function FlightChecker() {
         return;
       }
     }
-    setSubmitting(true);
-    // ! For Duffel Flight Search
-    try {
-      let supabaseToken;
-
-      // Try to get logged-in user's token
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session) {
-        // Logged-in user - use their access token
-        supabaseToken = session.access_token;
-      } else {
-        // Anonymous user - use anon key
-        supabaseToken = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      }
-
-      const searchData = {
-        data: {
-          slices: [
-            {
-              origin: flightData.departure_airport,
-              destination: flightData.destination_airport,
-              departure_date: flightData.preferred_date,
-            },
-          ],
-          passengers: [{ type: "adult" }],
-          cabin_class: "economy",
-        },
-      };
-
-      // Call supabase edge function
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/duffel-flights`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseToken}`,
-          },
-          body: JSON.stringify(searchData),
-        }
-      );
-
-      const data = await res.json();
-
-      // Handle errors or success
-      if (!res.ok) {
-        setResponse({
-          success: false,
-          message:
-            data.error?.message ||
-            data.error ||
-            data.errors?.[0]?.message ||
-            "Duffel API error",
-        });
-      } else {
-        // Check if user is anonymous
-        if (data.metadata?.isAnonymous) {
-          console.log("Anonymous user search");
-          // Optional: Show login prompt
-        }
-
-        setResponse(data.data || null);
-      }
-    } catch (err) {
-      console.error("Duffel flight search error:", err);
-      setResponse({
-        success: false,
-        message: "Error fetching Duffel flights",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-    // ! For Amadeus Flight Search
-    // try {
-    //   const token = await fetchAmadeusToken(user);
-    //   if (!token) {
-    //     setResponse({ success: false, message: "Failed to get access token" });
-    //     setSubmitting(false);
-    //     return;
-    //   }
-
-    //   const payload =
-    //     selectedPath === 1
-    //       ? { path: 1, flight_number: userFlight?.flight_number || "" }
-    //       : {
-    //           path: 2,
-    //           departure_airport: flightData.departure_airport,
-    //           destination_airport: flightData.destination_airport,
-    //           preferred_date: flightData.preferred_date || null,
-    //         };
-
-    //   const {
-    //     data: { session },
-    //   } = await supabase.auth.getSession();
-    //   if (!session) await supabase.auth.refreshSession();
-    //   const supabaseToken = session?.access_token;
-
-    //   const res = await fetch("/api/amadeus-flights", {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //       Authorization: `Bearer ${supabaseToken}`,
-    //     },
-    //     body: JSON.stringify(payload),
-    //   });
-
-    //   const data = await res.json();
-    //   setResponse(data?.data || null);
-    // } catch (err) {
-    //   console.error("Error calling API:", err);
-    //   setResponse({ success: false, message: "Error calling API" });
-    // }
-    setSubmitting(false);
+    // Also search flights using Amadeus after companion search
+    await handleSearchFlights();
   };
   // Flight Selection Handler And Seatmap + Companion Search When Not Booked
   const handleSelectFlight = async (flight) => {
@@ -279,16 +223,16 @@ export default function FlightChecker() {
 
       setLoadingSeatmap(true);
 
-      // ! 1. Fetch seatmaps for selected flight
+      // 1. Fetch seatmaps for selected flight using Amadeus
       const seatmapRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/duffel-seatmaps`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/amadeus-seatmaps`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${supabaseToken}`,
           },
-          body: JSON.stringify({ offer_id: flight.id }),
+          body: JSON.stringify({ flight_offer_id: flight.id }),
         }
       );
 
@@ -300,35 +244,29 @@ export default function FlightChecker() {
           `Seatmap fetch failed: ${
             seatmapData.error?.message ||
             seatmapData.error ||
-            seatmapData.errors?.[0]?.message ||
             "Unknown error"
           }`
         );
         return;
       }
-      // 2. Extract flight details (both need this)
-      const firstSlice = flight.slices?.[0];
-      const firstSegment = firstSlice?.segments?.[0];
+
+      // 2. Extract flight details from Amadeus format
+      const itinerary = flight.itineraries?.[0];
+      const firstSegment = itinerary?.segments?.[0];
 
       let flightNumber = "Unknown";
       let flightDate = flightData.preferred_date;
       let airlineCode = "Unknown";
 
       if (firstSegment) {
-        flightNumber =
-          firstSegment.marketing_carrier_flight_number ||
-          firstSegment.number ||
-          flight.id;
-        flightDate = firstSegment.departing_at?.split("T")[0] || flightDate;
-        airlineCode =
-          firstSegment.marketing_carrier?.iata_code ||
-          flight.owner?.iata_code ||
-          "Unknown";
+        flightNumber = firstSegment.number || flight.id;
+        flightDate = firstSegment.departure?.at?.split("T")[0] || flightDate;
+        airlineCode = firstSegment.carrierCode || "Unknown";
       }
 
       let companionsData = [];
 
-      // 3. ONLY search for companions if user is a traveler
+      // 3. Search for companions if user is a traveler
       if (profile === null || profile?.type === "traveller") {
         const flightDetails = {
           flight_number: flightNumber,
@@ -336,9 +274,9 @@ export default function FlightChecker() {
           airline: airlineCode,
         };
 
-        // Call our API route to search for companions
+        // Call search-companions endpoint
         const companionsRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/search-companions-duffel`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/search-companions`,
           {
             method: "POST",
             headers: {
@@ -354,10 +292,7 @@ export default function FlightChecker() {
         if (!contentType || !contentType.includes("application/json")) {
           setSubmitting(false);
           const textResponse = await companionsRes.text();
-          console.error(
-            "❌ Non-JSON response:",
-            textResponse.substring(0, 200)
-          );
+          console.error("Non-JSON response:", textResponse.substring(0, 200));
           throw new Error("Server returned non-JSON response");
         }
 
@@ -366,13 +301,10 @@ export default function FlightChecker() {
         if (companionsRes.ok && companionsResult.success) {
           setSubmitting(false);
           companionsData = companionsResult.companions || [];
-          console.log(
-            `✅ Found ${companionsData.length} companions for traveler`
-          );
+          console.log(`Found ${companionsData.length} companions for traveler`);
         } else {
           setSubmitting(false);
-          console.error("❌ Companion search failed:", companionsResult);
-          // Show user-friendly error
+          console.error("Companion search failed:", companionsResult);
           const errorMessage =
             companionsResult.details ||
             companionsResult.error ||
@@ -381,7 +313,7 @@ export default function FlightChecker() {
         }
       } else {
         setSubmitting(false);
-        console.log(`👤 User is ${profile?.type}, skipping companion search`);
+        console.log(`User is ${profile?.type}, skipping companion search`);
       }
       setSubmitting(false);
       setSeatmapData(seatmapData);
@@ -476,8 +408,9 @@ export default function FlightChecker() {
         // Use the found companion's ID
         const companionIdToUse = companionRecord.id;
 
-        const firstSlice = selectedFlight.slices?.[0];
-        const firstSegment = firstSlice?.segments?.[0];
+        // Extract flight details from Amadeus format
+        const itinerary = selectedFlight.itineraries?.[0];
+        const firstSegment = itinerary?.segments?.[0];
 
         if (!firstSegment) {
           alert("Cannot create pairing: Invalid flight data");
@@ -487,15 +420,12 @@ export default function FlightChecker() {
         const pairingData = {
           traveler_id: user.id,
           companion_id: companionIdToUse,
-          airline_name: selectedFlight.owner?.iata_code || "Unknown",
-          flight_number:
-            firstSegment.marketing_carrier_flight_number ||
-            firstSegment.number ||
-            "Unknown",
+          airline_name: firstSegment.carrierCode || "Unknown",
+          flight_number: firstSegment.number || "Unknown",
           flight_date:
-            firstSegment.departing_at?.split("T")[0] ||
+            firstSegment.departure?.at?.split("T")[0] ||
             flightData.preferred_date,
-          seat_number: selectedSeat?.name || "TBD",
+          seat_number: selectedSeat?.designator || selectedSeat?.number || "TBD",
           status: "pending_payment",
         };
 
@@ -535,32 +465,26 @@ export default function FlightChecker() {
     }
     if (!selectedFlight) return;
     setSubmitting(true);
-    const firstSlice = selectedFlight.slices?.[0];
-    const segments = firstSlice?.segments || [];
+
+    // Extract from Amadeus format
+    const itinerary = selectedFlight.itineraries?.[0];
+    const segments = itinerary?.segments || [];
 
     let stopDescription = "Nonstop";
 
     if (segments.length > 1) {
       const connectionCount = segments.length - 1;
-      // Get all connection (layover) airports between origin and final destination
       const connectionAirports = segments
         .slice(0, -1)
         .map(
           (segment) =>
-            segment.destination?.name ||
-            segment.destination?.iata_code ||
-            "Unknown Airport"
+            segment.arrival?.iataCode || "Unknown Airport"
         );
 
       stopDescription = `${connectionCount} connection${
         connectionCount > 1 ? "s" : ""
       } via ${connectionAirports.join(", ")}`;
     }
-    // if (profile?.role !== "traveller") {
-    //   setSubmitting(false);
-    //   alert("Only travellers can book flights.");
-    //   return;
-    // }
 
     try {
       const {
@@ -570,7 +494,7 @@ export default function FlightChecker() {
       if (!session) await supabase.auth.refreshSession();
       const supabaseToken = session?.access_token;
 
-      // 🧠 Save booking context to localStorage before redirect
+      // Save booking context to localStorage before redirect
       localStorage.setItem(
         "pendingBooking",
         JSON.stringify({
@@ -583,9 +507,9 @@ export default function FlightChecker() {
         })
       );
 
-      // 🔹 1. Create Stripe Checkout session
+      // Create Stripe Checkout session using Amadeus endpoint
       const stripeRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/duffel-confirm-booking-using-stripe`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/amadeus-confirm-booking-using-stripe`,
         {
           method: "POST",
           headers: {
@@ -608,7 +532,7 @@ export default function FlightChecker() {
         return;
       }
 
-      // ✅ Redirect to Stripe checkout
+      // Redirect to Stripe checkout
       if (stripeData.url) {
         window.location.href = stripeData.url;
         return;
@@ -633,22 +557,16 @@ export default function FlightChecker() {
   };
   // if (loading) return <LoadingState />;
   // if (!profile) return <p>You must be logged in to check flights.</p>;
+
+  const hasFlightResults = response && response.data && response.data.length > 0;
+
   return (
     <>
       {submitting && <Loader />}
       <BackButton text="Back" className="text-black" />
-      <div
-        className={`max-w-xl mx-auto rounded  ${
-          !selectedPath
-            ? "h-screen flex flex-col justify-center"
-            : " h-screen flex flex-col justify-center mt-10"
-        } ${
-          selectedPath === 1
-            ? " "
-            : "h-screen flex flex-col justify-center !shadow-none"
-        }`}
-      >
-        <h1 className="text-2xl font-bold mb-6 text-center">Flight Checker</h1>
+      <div className="w-full px-4 py-6">
+        <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">Flight Checker</h1>
         {!selectedPath && <PathSelector setSelectedPath={setSelectedPath} />}
         {selectedPath === 1 && (
           <>
@@ -668,39 +586,37 @@ export default function FlightChecker() {
         )}
         {selectedPath === 2 && (
           <>
-            <BackButton
-              text="Back"
-              path={"/dashboard/FlightChecker"}
-              selected={selectedPath === 2}
-              setSelectedPath={setSelectedPath}
-              className="text-black"
-            />
+            {!hasFlightResults && (
+              <BackButton
+                text="Back"
+                path={"/dashboard/FlightChecker"}
+                selected={selectedPath === 2}
+                setSelectedPath={setSelectedPath}
+                className="text-black"
+              />
+            )}
             <RouteForm
               userRole={profile?.type}
               flightData={flightData}
               setFlightData={setFlightData}
               handleSubmit={handleSubmit}
+              handleSearchFlights={handleSearchFlights}
               submitting={submitting}
               setSelectedPath={setSelectedPath}
+              hasResults={hasFlightResults}
+              onModifySearch={() => setResponse(null)}
             />
           </>
         )}
-        {/* {response && response.length > 0 && (
-        <FlightList
-          response={response}
-          currentPage={1}
-          setCurrentPage={() => {}}
-          flightsPerPage={10}
-          handleSelectFlight={handleSelectFlight}
-        />
-      )} */}
-        {response && response.offers && response.offers.length > 0 && (
-          <DuffelFlightList
-            offers={response}
+        {/* Amadeus Flight List */}
+        {hasFlightResults && (
+          <AmadeusFlightList
+            offers={response.data}
+            dictionaries={response.dictionaries}
             handleSelectFlight={handleSelectFlight}
           />
         )}
-        <SeatMapModalDuffel
+        <SeatMapModal
           showSeatmap={showSeatmap}
           setShowSeatmap={setShowSeatmap}
           loadingSeatmap={loadingSeatmap}
@@ -745,6 +661,7 @@ export default function FlightChecker() {
             onClose={() => setErrorOpen(false)}
           />
         )}
+        </div>
       </div>
     </>
   );
