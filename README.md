@@ -57,17 +57,32 @@ AidHandy is a **travel assistance marketplace platform** that connects travelers
 
 ## Project Structure
 ```
-travel-market/
-├── Aidhandy/          # Main Next.js application
-│   ├── app/           # App Router pages
-│   ├── components/    # React components
-│   ├── libs/          # Utility libraries
-│   ├── supabase/      # Supabase configuration & edge functions
-│   └── prisma/        # Database schema
-├── GUIDE.md           # Testing guide
-├── phase1.txt         # Phase 1 technical summary
-├── phase2.txt         # Phase 2 contract scope
-└── expectphase1.txt   # Expected Phase 1 behaviors
+Aidhandy/
+├── app/                # Next.js App Router
+│   ├── admin/          # Admin dashboard pages
+│   ├── api/            # API routes
+│   ├── auth/           # Authentication pages
+│   ├── dashboard/      # User dashboard pages
+│   ├── providers/      # React context providers
+│   ├── stripe/         # Stripe integration pages
+│   └── verify-email/   # Email verification
+├── components/         # React components
+│   ├── Booked-Flight/  # Booked flight components
+│   ├── common/         # Shared/reusable components
+│   ├── Error/          # Error handling components
+│   ├── Flight/         # Flight search/display components
+│   ├── layout/         # Layout components
+│   ├── Paypal/         # PayPal integration components
+│   ├── Profile/        # User profile components
+│   └── Seat/           # Seat selection components
+├── context/            # React context definitions
+├── hooks/              # Custom React hooks
+├── libs/               # Utility libraries
+├── prisma/             # Database schema
+├── public/             # Static assets
+├── supabase/           # Supabase configuration
+│   └── functions/      # Edge functions
+└── utils/              # Helper utilities
 ```
 
 ## Development Phases
