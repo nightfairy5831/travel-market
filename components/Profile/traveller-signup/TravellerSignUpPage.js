@@ -268,13 +268,6 @@ export default function TravellerSignUpPage({ email, user, profile }) {
                 }
                 className="text-4xl font-extrabold text-slate-900"
               />
-              {/* {isEditing && (
-              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-blue-700 font-medium">
-                  📝 You're updating your existing profile
-                </p>
-              </div>
-            )} */}
               {email && (
                 <p className="text-slate-600 mt-2">
                   Signed in as: <strong>{email}</strong>

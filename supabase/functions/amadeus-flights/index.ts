@@ -9,6 +9,12 @@ const AMADEUS_CLIENT_ID = Deno.env.get("AMADEUS_CLIENT_ID");
 const AMADEUS_CLIENT_SECRET = Deno.env.get("AMADEUS_CLIENT_SECRET");
 const BASE_URL = "https://test.api.amadeus.com";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
 
@@ -41,8 +47,13 @@ async function getAmadeusToken(): Promise<string> {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST")
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
   try {
     const body = await req.json();
@@ -63,7 +74,7 @@ serve(async (req) => {
             message:
               "Missing required fields: departure_airport or destination_airport",
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -92,20 +103,20 @@ serve(async (req) => {
       console.error("Amadeus flights API error:", err);
       return new Response(
         JSON.stringify({ success: false, message: "Amadeus API error", error: err }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await amadeusRes.json();
     return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("Edge function error:", err);
     return new Response(
       JSON.stringify({ success: false, message: err.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

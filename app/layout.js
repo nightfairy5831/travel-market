@@ -12,7 +12,11 @@ import ToastProvider from "@/components/Error/ErrorMessage";
 export const metadata = {
   title: "AidHandy App",
   description: "Professional Next.js app with Supabase email OTP login",
-  viewport: "width=device-width, initial-scale=1",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default async function RootLayout({ children }) {

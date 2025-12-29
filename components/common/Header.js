@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/libs/supabaseClient";
 import { useState } from "react";
 import ProfileDropdown from "./ProfileDropdown";
@@ -8,6 +8,7 @@ import ProfileDropdown from "./ProfileDropdown";
 export default function Header({ profile }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -70,40 +71,67 @@ export default function Header({ profile }) {
 
           {profile && profile.status === "active" && (
             <div className="flex items-center justify-center space-x-4">
-              <Link
-                href="/dashboard"
-                className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
-                  pathname === "/dashboard"
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "text-white hover:bg-gray-800"
-                }`}
-              >
-                Dashboard
-              </Link>
-
-              {["traveller", "companion"].includes(profile.type) && (
+              {profile.role === "admin" ? (
                 <>
                   <Link
-                    href="/dashboard/Booked-Flights"
+                    href="/admin?tab=bookings"
                     className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
-                      pathname === "/dashboard/Booked-Flights"
-                        ? "bg-red-100 text-red-700"
-                        : "text-white hover:bg-gray-800"
-                    }`}
-                  >
-                    Booked Flights
-                  </Link>
-
-                  <Link
-                    href="/dashboard/FlightChecker"
-                    className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
-                      pathname === "/dashboard/FlightChecker"
+                      pathname === "/admin" && searchParams.get("tab") !== "companions"
                         ? "bg-indigo-100 text-indigo-700"
                         : "text-white hover:bg-gray-800"
                     }`}
                   >
-                    Flight Checker
+                    Bookings
                   </Link>
+                  <Link
+                    href="/admin?tab=companions"
+                    className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
+                      searchParams.get("tab") === "companions"
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "text-white hover:bg-gray-800"
+                    }`}
+                  >
+                    Companions
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
+                      pathname === "/dashboard"
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "text-white hover:bg-gray-800"
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+
+                  {["traveller", "companion"].includes(profile.type) && (
+                    <>
+                      <Link
+                        href="/dashboard/Booked-Flights"
+                        className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
+                          pathname === "/dashboard/Booked-Flights"
+                            ? "bg-red-100 text-red-700"
+                            : "text-white hover:bg-gray-800"
+                        }`}
+                      >
+                        Booked Flights
+                      </Link>
+
+                      <Link
+                        href="/dashboard/FlightChecker"
+                        className={`px-3 py-2 rounded-md text-lg font-semibold transition duration-200 whitespace-nowrap ${
+                          pathname === "/dashboard/FlightChecker"
+                            ? "bg-indigo-100 text-indigo-700"
+                            : "text-white hover:bg-gray-800"
+                        }`}
+                      >
+                        Flight Checker
+                      </Link>
+                    </>
+                  )}
                 </>
               )}
             </div>
