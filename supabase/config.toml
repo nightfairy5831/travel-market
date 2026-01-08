@@ -172,3 +172,21 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/stripe-webhook/deno.json"
 entrypoint = "./functions/stripe-webhook/index.ts"
+
+[functions.paypal-create-order]
+enabled = true
+verify_jwt = true
+import_map = "./functions/paypal-create-order/deno.json"
+entrypoint = "./functions/paypal-create-order/index.ts"
+
+[functions.paypal-capture]
+enabled = true
+verify_jwt = false
+import_map = "./functions/paypal-capture/deno.json"
+entrypoint = "./functions/paypal-capture/index.ts"
+
+[functions.paypal-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/paypal-webhook/deno.json"
+entrypoint = "./functions/paypal-webhook/index.ts"

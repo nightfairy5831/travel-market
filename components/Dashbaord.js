@@ -83,22 +83,31 @@ const Dashboard = () => {
     if (!confirm("Approve this companion?")) return;
     setActionLoading(companionId);
     try {
-      const { error } = await supabase
-        .from("companions")
-        .update({ is_kyc_approved: true, updated_at: new Date().toISOString() })
-        .eq("id", companionId);
-      if (error) throw error;
-      const companion = companions.find((c) => c.id === companionId);
-      if (companion?.user_id) {
-        await supabase
-          .from("users")
-          .update({ status: "active", updated_at: new Date().toISOString() })
-          .eq("id", companion.user_id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
       }
+
+      const response = await fetch("/api/admin/companion/approve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ companionId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to approve companion");
+      }
+
       await fetchAllData();
+      alert("Companion approved successfully!");
     } catch (error) {
       console.error("Error approving companion:", error);
-      alert("Failed to approve companion.");
+      alert("Failed to approve companion: " + error.message);
     } finally {
       setActionLoading(null);
     }
@@ -108,15 +117,30 @@ const Dashboard = () => {
     if (!confirm("Reject/suspend this companion?")) return;
     setActionLoading(companionId);
     try {
-      const { error } = await supabase
-        .from("companions")
-        .update({ is_kyc_approved: false, updated_at: new Date().toISOString() })
-        .eq("id", companionId);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch("/api/admin/companion/reject", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ companionId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to reject companion");
+      }
+
       await fetchAllData();
     } catch (error) {
       console.error("Error rejecting companion:", error);
-      alert("Failed to reject companion.");
+      alert("Failed to reject companion: " + error.message);
     } finally {
       setActionLoading(null);
     }
@@ -433,24 +457,31 @@ const Dashboard = () => {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                                companion.stripe_charges_enabled
-                                  ? "bg-green-100 text-green-700"
-                                  : companion.stripe_account_id
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {companion.stripe_charges_enabled ? "Active" : companion.stripe_account_id ? "Pending" : "Not Started"}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                                  companion.stripe_charges_enabled
+                                    ? "bg-green-100 text-green-700"
+                                    : companion.stripe_account_id
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {companion.stripe_charges_enabled ? "Active" : companion.stripe_account_id ? "Connected" : "Not Started"}
+                              </span>
+                              {companion.stripe_account_id && (
+                                <span className="text-xs text-gray-500 font-mono truncate max-w-[120px]" title={companion.stripe_account_id}>
+                                  {companion.stripe_account_id}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1">
                               <button
                                 onClick={() => handleApproveCompanion(companion.id)}
-                                disabled={actionLoading === companion.id || !companion.stripe_charges_enabled}
-                                title={!companion.stripe_charges_enabled ? "Stripe onboarding not complete" : ""}
+                                disabled={actionLoading === companion.id || !companion.stripe_account_id}
+                                title={!companion.stripe_account_id ? "Stripe account not created yet" : ""}
                                 className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 Approve
