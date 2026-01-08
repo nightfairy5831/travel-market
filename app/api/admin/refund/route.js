@@ -2,17 +2,33 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Lazy initialization to avoid build-time errors when env vars are not set
+function getStripeClient() {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    return null;
+  }
+  return new Stripe(secretKey);
+}
 
-const PAYPAL_API_URL = process.env.PAYPAL_API_URL || "https://api-m.sandbox.paypal.com";
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
+function getPayPalConfig() {
+  return {
+    apiUrl: process.env.PAYPAL_API_URL || "https://api-m.sandbox.paypal.com",
+    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET,
+  };
+}
 
 // Get PayPal access token
 async function getPayPalAccessToken() {
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString("base64");
+  const config = getPayPalConfig();
+  if (!config.clientId || !config.clientSecret) {
+    return null;
+  }
 
-  const response = await fetch(`${PAYPAL_API_URL}/v1/oauth2/token`, {
+  const auth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
+
+  const response = await fetch(`${config.apiUrl}/v1/oauth2/token`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${auth}`,
@@ -111,43 +127,50 @@ export async function POST(request) {
       refundResult = { provider: "paypal", status: "manual_required" };
     } else {
       // Stripe refund
-      // Find the payment intent for this booking
-      // We search for checkout sessions with the user_id in metadata
-      const sessions = await stripe.checkout.sessions.list({
-        limit: 100,
-      });
+      const stripe = getStripeClient();
 
-      const matchingSession = sessions.data.find(
-        (s) => s.metadata?.user_id === booking.traveler_id
-      );
-
-      if (matchingSession?.payment_intent) {
-        try {
-          const refund = await stripe.refunds.create({
-            payment_intent: matchingSession.payment_intent,
-            reason: "requested_by_customer",
-            metadata: {
-              booking_id: bookingId,
-              admin_reason: reason || "Admin initiated refund",
-            },
-          });
-
-          refundResult = {
-            provider: "stripe",
-            refundId: refund.id,
-            status: refund.status,
-            amount: refund.amount / 100,
-          };
-        } catch (stripeError) {
-          console.error("Stripe refund error:", stripeError);
-          return NextResponse.json(
-            { error: stripeError.message || "Stripe refund failed" },
-            { status: 500 }
-          );
-        }
+      if (!stripe) {
+        // Stripe not configured, mark as manual
+        refundResult = { provider: "stripe", status: "manual_required", reason: "Stripe not configured" };
       } else {
-        // If no Stripe session found, update status manually
-        refundResult = { provider: "stripe", status: "manual_required" };
+        // Find the payment intent for this booking
+        // We search for checkout sessions with the user_id in metadata
+        const sessions = await stripe.checkout.sessions.list({
+          limit: 100,
+        });
+
+        const matchingSession = sessions.data.find(
+          (s) => s.metadata?.user_id === booking.traveler_id
+        );
+
+        if (matchingSession?.payment_intent) {
+          try {
+            const refund = await stripe.refunds.create({
+              payment_intent: matchingSession.payment_intent,
+              reason: "requested_by_customer",
+              metadata: {
+                booking_id: bookingId,
+                admin_reason: reason || "Admin initiated refund",
+              },
+            });
+
+            refundResult = {
+              provider: "stripe",
+              refundId: refund.id,
+              status: refund.status,
+              amount: refund.amount / 100,
+            };
+          } catch (stripeError) {
+            console.error("Stripe refund error:", stripeError);
+            return NextResponse.json(
+              { error: stripeError.message || "Stripe refund failed" },
+              { status: 500 }
+            );
+          }
+        } else {
+          // If no Stripe session found, update status manually
+          refundResult = { provider: "stripe", status: "manual_required" };
+        }
       }
     }
 
