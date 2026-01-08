@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 const PayPalButton = ({
   amount,
@@ -17,20 +18,35 @@ const PayPalButton = ({
     setLoading(true);
 
     try {
-      // Create order on our backend
-      const response = await fetch('/api/paypal/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: amount,
-          currency: currency,
-          flightDetails: flightDetails,
-          userId: userId,
-          companionId: companionId,
-        }),
-      });
+      // Get Supabase client for auth token
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('Please log in to continue with payment');
+      }
+
+      // Create order via Supabase Edge Function
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/paypal-create-order`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            amount: amount,
+            currency: currency,
+            flightDetails: flightDetails,
+            companionId: companionId,
+          }),
+        }
+      );
 
       const orderData = await response.json();
 
